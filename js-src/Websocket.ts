@@ -189,7 +189,7 @@ export class Websocket {
         }
     }
 
-    private async actuallySubscribe(channel: Channel): Promise<void> {
+    private actuallySubscribe(channel: Channel): void {
         if (channel.name.startsWith('private-') || channel.name.startsWith('presence-')) {
             this.options.debug && console.log(`${LOG_PREFIX} Sending auth request for channel ${channel.name}`);
 
@@ -197,25 +197,23 @@ export class Websocket {
                 this.options.auth.headers['Authorization'] = 'Bearer ' + this.options.bearerToken;
             }
 
-            try {
-                const response = await fetch(this.options.authEndpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...this.options.auth.headers,
-                    },
-                    body: JSON.stringify({
-                        socket_id: this.getSocketId(),
-                        channel_name: channel.name,
-                    }),
-                });
-
-                if (! response.ok) {
+            fetch(this.options.authEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.options.auth.headers,
+                },
+                body: JSON.stringify({
+                    socket_id: this.getSocketId(),
+                    channel_name: channel.name,
+                }),
+            }).then((response) => {
+                if (!response.ok) {
                     throw new Error(`Auth request failed: ${response.status}`);
                 }
 
-                const data = await response.json();
-
+                return response.json();
+            }).then((data) => {
                 this.options.debug && console.log(`${LOG_PREFIX} Subscribing to private channel ${channel.name}`);
 
                 this.send({
@@ -225,12 +223,10 @@ export class Websocket {
                         ...data,
                     },
                 });
-
-            } catch (error) {
+            }).catch((error) => {
                 this.options.debug && console.log(`${LOG_PREFIX} Auth request for channel ${channel.name} failed`);
                 this.options.debug && console.error(error);
-            }
-
+            })
         } else {
             this.options.debug && console.log(`${LOG_PREFIX} Subscribing to channel ${channel.name}`);
 
