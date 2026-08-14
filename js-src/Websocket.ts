@@ -1,6 +1,4 @@
-import { AxiosResponse } from "axios";
 import { Channel } from "./Channel";
-import axios from 'axios';
 
 export type Options = { authEndpoint: string, host: string, bearerToken: string, auth: any, debug: boolean };
 
@@ -199,19 +197,30 @@ export class Websocket {
                 this.options.auth.headers['Authorization'] = 'Bearer ' + this.options.bearerToken;
             }
 
-            axios.post(this.options.authEndpoint, {
-                socket_id: this.getSocketId(),
-                channel_name: channel.name,
-            }, {
-              headers: this.options.auth.headers || {}
-            }).then((response: AxiosResponse) => {
+            fetch(this.options.authEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...this.options.auth.headers,
+                },
+                body: JSON.stringify({
+                    socket_id: this.getSocketId(),
+                    channel_name: channel.name,
+                }),
+            }).then((response) => {
+                if (!response.ok) {
+                    throw new Error(`Auth request failed: ${response.status}`);
+                }
+
+                return response.json();
+            }).then((data) => {
                 this.options.debug && console.log(`${LOG_PREFIX} Subscribing to private channel ${channel.name}`);
 
                 this.send({
                     event: 'subscribe',
                     data: {
                         channel: channel.name,
-                        ...response.data
+                        ...data,
                     },
                 });
             }).catch((error) => {
